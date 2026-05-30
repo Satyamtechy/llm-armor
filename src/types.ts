@@ -2,7 +2,7 @@ import type { ZodSchema, ZodTypeDef, z } from 'zod'
 
 // ─── Provider Types ─────────────────────────────────────────────────────────
 
-export type ModelProvider = 'openai' | 'anthropic' | 'gemini' | 'custom'
+export type ModelProvider = 'openai' | 'anthropic' | 'gemini' | 'ollama' | 'groq' | 'together' | 'custom'
 
 export interface ProviderConfig {
   apiKey: string
@@ -50,6 +50,7 @@ export interface ArmorOptions<T extends ZodSchema<unknown, ZodTypeDef, unknown>>
   coerce?: boolean
   fallback?: FallbackConfig[]
   defaultValue?: z.infer<T>
+  cache?: { enabled: boolean; ttl?: number; maxSize?: number }
 }
 
 export interface FallbackConfig {
@@ -75,6 +76,7 @@ export interface ArmorMeta {
   coerced: CoercionEntry[]
   repaired: string[]
   fallbackPath: string[]
+  cached: boolean
 }
 
 export interface CoercionEntry {

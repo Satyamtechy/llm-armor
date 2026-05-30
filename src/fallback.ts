@@ -60,6 +60,7 @@ export async function executeFallbackChain<T>(options: FallbackOptions): Promise
         coerced: allCoerced,
         repaired: allRepairs,
         fallbackPath,
+        cached: false,
       }
       return { success: true, data: result.data as T, meta }
     }
@@ -74,6 +75,7 @@ export async function executeFallbackChain<T>(options: FallbackOptions): Promise
     coerced: allCoerced,
     repaired: allRepairs,
     fallbackPath,
+    cached: false,
   }
 
   return {

@@ -4,6 +4,7 @@ import { executeFallbackChain } from './fallback'
 import { executeWithRetry } from './retry'
 import { resolveProvider } from './providers'
 import { normalizeRawOutput, safeParse } from './normalizer'
+import { getCached, setCached, initDefaultCache } from './cache'
 
 // ─── Global Config ──────────────────────────────────────────────────────────
 
@@ -33,7 +34,26 @@ export async function armor<T extends ZodSchema<unknown, ZodTypeDef, unknown>>(
     coerce = globalConfig.defaults?.coerce ?? true,
     fallback,
     defaultValue,
+    cache,
   } = options
+
+  // Initialize cache if enabled
+  if (cache?.enabled) {
+    initDefaultCache({ maxSize: cache.maxSize, ttl: cache.ttl })
+  }
+
+  // Check cache
+  const cacheModel = model ?? fallback?.[0]?.model ?? 'unknown'
+  if (cache?.enabled) {
+    const cached = getCached<z.infer<T>>(prompt, cacheModel, schema)
+    if (cached !== undefined) {
+      return {
+        success: true,
+        data: cached,
+        meta: { attempts: 0, finalModel: cacheModel, latency: 0, cost: 0, coerced: [], repaired: [], fallbackPath: [], cached: true },
+      }
+    }
+  }
 
   try {
     // If fallback chain is provided, use it
@@ -53,9 +73,12 @@ export async function armor<T extends ZodSchema<unknown, ZodTypeDef, unknown>>(
       })
 
       if (!result.success && defaultValue !== undefined) {
-        return { success: true, data: defaultValue, meta: result.meta }
+        return { success: true, data: defaultValue, meta: { ...result.meta, cached: false } }
       }
-      return result
+      if (result.success && cache?.enabled) {
+        setCached(prompt, cacheModel, schema, result.data, cache.ttl)
+      }
+      return { ...result, meta: { ...result.meta, cached: false } }
     }
 
     // Single model execution
@@ -73,9 +96,13 @@ export async function armor<T extends ZodSchema<unknown, ZodTypeDef, unknown>>(
     })
 
     if (result.success) {
+      const data = result.data as z.infer<T>
+      if (cache?.enabled) {
+        setCached(prompt, model, schema, data, cache.ttl)
+      }
       return {
         success: true,
-        data: result.data as z.infer<T>,
+        data,
         meta: {
           attempts: result.attempts,
           finalModel: model,
@@ -84,6 +111,7 @@ export async function armor<T extends ZodSchema<unknown, ZodTypeDef, unknown>>(
           coerced: result.coerced,
           repaired: result.repaired,
           fallbackPath: [`${model}(${result.attempts}x)`],
+          cached: false,
         },
       }
     }
@@ -101,6 +129,7 @@ export async function armor<T extends ZodSchema<unknown, ZodTypeDef, unknown>>(
           coerced: result.coerced,
           repaired: result.repaired,
           fallbackPath: [`${model}(${result.attempts}x)`],
+          cached: false,
         },
       }
     }
@@ -122,6 +151,7 @@ export async function armor<T extends ZodSchema<unknown, ZodTypeDef, unknown>>(
         coerced: result.coerced,
         repaired: result.repaired,
         fallbackPath: [`${model}(${result.attempts}x)`],
+        cached: false,
       },
     }
   } catch (err) {
@@ -130,7 +160,7 @@ export async function armor<T extends ZodSchema<unknown, ZodTypeDef, unknown>>(
       success: false,
       data: null,
       error: { code: 'PROVIDER_ERROR', message },
-      meta: { attempts: 0, finalModel: model ?? 'unknown', latency: 0, cost: 0, coerced: [], repaired: [], fallbackPath: [] },
+      meta: { attempts: 0, finalModel: model ?? 'unknown', latency: 0, cost: 0, coerced: [], repaired: [], fallbackPath: [], cached: false },
     }
   }
 }
@@ -212,6 +242,9 @@ function detectProvider(model: string): string {
   if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3')) return 'openai'
   if (model.startsWith('claude')) return 'anthropic'
   if (model.startsWith('gemini')) return 'gemini'
+  if (model.includes('llama') || model.includes('mistral')) return 'ollama'
+  if (model.includes('groq')) return 'groq'
+  if (model.includes('together')) return 'together'
   return 'openai'
 }
 

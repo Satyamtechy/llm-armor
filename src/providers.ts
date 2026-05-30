@@ -202,12 +202,146 @@ const geminiAdapter: ProviderAdapter = {
   },
 }
 
+// ─── Ollama Adapter ─────────────────────────────────────────────────────────
+
+const ollamaAdapter: ProviderAdapter = {
+  name: 'ollama',
+
+  async call(messages: ProviderMessage[], options: ProviderCallOptions): Promise<ProviderResponse> {
+    const config = getConfig().providers.ollama
+    const start = Date.now()
+    const baseUrl = config?.baseUrl ?? 'http://localhost:11434'
+
+    const response = await fetch(`${baseUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: options.model,
+        messages,
+        stream: false,
+        format: 'json',
+      }),
+      signal: options.timeout ? AbortSignal.timeout(options.timeout) : undefined,
+    })
+
+    if (!response.ok) {
+      const err = await response.text()
+      throw new Error(`Ollama error ${response.status}: ${err}`)
+    }
+
+    const data = await response.json() as { message: { content: string } }
+
+    return {
+      content: data.message.content,
+      model: options.model,
+      latency: Date.now() - start,
+    }
+  },
+}
+
+// ─── Groq Adapter ───────────────────────────────────────────────────────────
+
+const groqAdapter: ProviderAdapter = {
+  name: 'groq',
+
+  async call(messages: ProviderMessage[], options: ProviderCallOptions): Promise<ProviderResponse> {
+    const config = getConfig().providers.groq
+    if (!config?.apiKey) throw new Error('Groq API key not configured.')
+
+    const start = Date.now()
+    const baseUrl = config.baseUrl ?? 'https://api.groq.com/openai/v1'
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: options.model,
+        messages,
+        temperature: options.temperature ?? 0,
+        max_tokens: options.maxTokens,
+        response_format: { type: 'json_object' },
+      }),
+      signal: options.timeout ? AbortSignal.timeout(options.timeout) : undefined,
+    })
+
+    if (!response.ok) {
+      const err = await response.text()
+      throw new Error(`Groq error ${response.status}: ${err}`)
+    }
+
+    const data = await response.json() as {
+      choices: { message: { content: string } }[]
+      usage?: { prompt_tokens: number; completion_tokens: number }
+    }
+
+    return {
+      content: data.choices[0]?.message.content ?? '',
+      model: options.model,
+      usage: data.usage ? { promptTokens: data.usage.prompt_tokens, completionTokens: data.usage.completion_tokens } : undefined,
+      latency: Date.now() - start,
+    }
+  },
+}
+
+// ─── Together AI Adapter ────────────────────────────────────────────────────
+
+const togetherAdapter: ProviderAdapter = {
+  name: 'together',
+
+  async call(messages: ProviderMessage[], options: ProviderCallOptions): Promise<ProviderResponse> {
+    const config = getConfig().providers.together
+    if (!config?.apiKey) throw new Error('Together AI API key not configured.')
+
+    const start = Date.now()
+    const baseUrl = config.baseUrl ?? 'https://api.together.xyz/v1'
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: options.model,
+        messages,
+        temperature: options.temperature ?? 0,
+        max_tokens: options.maxTokens,
+        response_format: { type: 'json_object' },
+      }),
+      signal: options.timeout ? AbortSignal.timeout(options.timeout) : undefined,
+    })
+
+    if (!response.ok) {
+      const err = await response.text()
+      throw new Error(`Together error ${response.status}: ${err}`)
+    }
+
+    const data = await response.json() as {
+      choices: { message: { content: string } }[]
+      usage?: { prompt_tokens: number; completion_tokens: number }
+    }
+
+    return {
+      content: data.choices[0]?.message.content ?? '',
+      model: options.model,
+      usage: data.usage ? { promptTokens: data.usage.prompt_tokens, completionTokens: data.usage.completion_tokens } : undefined,
+      latency: Date.now() - start,
+    }
+  },
+}
+
 // ─── Registry ───────────────────────────────────────────────────────────────
 
 const adapters: Record<string, ProviderAdapter> = {
   openai: openaiAdapter,
   anthropic: anthropicAdapter,
   gemini: geminiAdapter,
+  ollama: ollamaAdapter,
+  groq: groqAdapter,
+  together: togetherAdapter,
 }
 
 export function resolveProvider(name: ModelProvider | string): ProviderAdapter {

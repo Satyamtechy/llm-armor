@@ -1,6 +1,7 @@
 export { armor, configureArmor } from './armor'
 export { registerProvider } from './providers'
 export { normalizeRawOutput, coerceTypes } from './normalizer'
+export { createCache } from './cache'
 
 export type {
   ArmorOptions,
