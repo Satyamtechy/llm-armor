@@ -97,6 +97,8 @@ export function setCached<T>(prompt: string, model: string, schema: ZodSchema, v
 }
 
 export function initDefaultCache(options: CacheOptions): ArmorCache {
-  defaultCache = createCache(options)
+  if (!defaultCache) {
+    defaultCache = createCache(options)
+  }
   return defaultCache
 }
