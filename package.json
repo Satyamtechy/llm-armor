@@ -1,6 +1,6 @@
 {
   "name": "llm-armor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bulletproof LLM output — validation, auto-retry, type coercion, and fallback chains for TypeScript",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

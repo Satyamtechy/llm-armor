@@ -59,6 +59,8 @@ npm install llm-armor zod
 | **Streaming** | Validate incrementally as tokens arrive |
 | **Cost Tracking** | Know exactly how much each call costs across retries |
 | **Multi-Provider** | OpenAI, Anthropic, Gemini — same API |
+| **6 Providers** | OpenAI, Anthropic, Gemini, Ollama, Groq, Together — auto-detected |
+| **Response Cache** | LRU cache with TTL — skip API calls for identical prompts |
 
 ## Quick Start
 
@@ -209,6 +211,29 @@ registerProvider('ollama', {
 
 // Now use it
 await armor({ ..., model: 'llama3', provider: 'ollama' })
+```
+
+### New in v0.2.0
+
+**6 Providers Built-in**
+```ts
+// Auto-detected from model name
+await armor({ prompt: '...', schema, model: 'llama3' })        // → Ollama (local)
+await armor({ prompt: '...', schema, model: 'llama-3.1-70b' }) // → Groq
+await armor({ prompt: '...', schema, model: 'mistral-7b' })    // → Together
+```
+
+Supported: OpenAI, Anthropic, Gemini, Ollama, Groq, Together AI
+
+**Response Caching**
+```ts
+const result = await armor({
+  prompt: 'Extract user from: John, 28',
+  schema: UserSchema,
+  model: 'gpt-4o-mini',
+  cache: { enabled: true, ttl: 60000 } // Cache for 60s
+})
+// result.meta.cached === true on subsequent identical calls
 ```
 
 ## Testing Without API Keys

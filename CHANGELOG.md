@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 (2026-05-30)
+
+### Features
+- 3 new providers: Ollama (local models), Groq, Together AI
+- Auto-detection: model name → provider mapping
+- LRU response cache with configurable TTL and max size
+- Cache hit tracking in `meta.cached`
+
 ## 0.1.0 (2026-05-30)
 
 ### Features
